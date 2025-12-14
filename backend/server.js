@@ -42,11 +42,13 @@ const ensureDBConnection  = async () => {
   if (!dbConnected && !dbConnectionError) {
     try {
       // Skip DB connection if MONGO_URI is not set
-if (!process.env.MONGO_URI) {
-     console.warn('⚠️  MONGO_URI is not set. Database features will not be available.');
-     dbConnected = false;
-     return;
-   }
+if (!dbConnected && !dbConnectionError) {
+    try {
+      // Skip DB connection if MONGO_URI is not set
+      if (!process.env.MONGO_URI) {
+        console.warn('⚠️ MONGO_URI is not set. Database features will not be available.');
+        dbConnected = false;
+        return;
       }
       await connectDB();
       dbConnected = true;
@@ -60,6 +62,8 @@ if (!process.env.MONGO_URI) {
     }
   } else if (dbConnectionError) {
     throw dbConnectionError;
+  }
+};
   }
 };
 
