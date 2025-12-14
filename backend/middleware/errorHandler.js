@@ -2,8 +2,12 @@ export const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
-  // Log error for debugging
-  console.error(err);
+  // Log error for debugging (but don't expose stack in production)
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Error details:', err);
+  } else {
+    console.error('Error:', err.message);
+  }
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {

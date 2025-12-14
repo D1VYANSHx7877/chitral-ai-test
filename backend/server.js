@@ -13,27 +13,48 @@ import registrationRoutes from './routes/registrationRoutes.js';
 // Load environment variables
 dotenv.config();
 
-// Connect to database
-connectDB();
-
 const app = express();
 
+// Lazy database connection - only connect when needed (for serverless)
+let dbConnected = false;
+const ensureDBConnection = async () => {
+  if (!dbConnected) {
+    try {
+      await connectDB();
+      dbConnected = true;
+    } catch (error) {
+      console.error('Database connection error:', error);
+      dbConnected = false;
+    }
+  }
+};
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Middleware to ensure DB connection before handling requests
+app.use(async (req, res, next) => {
+  await ensureDBConnection();
+  next();
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/registrations', registrationRoutes);
 
-// Health check
+// Health check (doesn't require DB connection)
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
     message: 'Server is running',
     timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
   });
 });
 
@@ -43,9 +64,14 @@ app.use(notFound);
 // Error handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+// Export app for Vercel serverless functions
+// Only start server if not in Vercel environment
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+}
 
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-});
+export default app;
 
