@@ -1,6 +1,11 @@
 // Vercel serverless function entry point
 import app from '../backend/server.js';
 
+// Vercel runtime config
+export const config = {
+  runtime: 'nodejs18.x'
+};
+
 // Export handler for Vercel
 // This function will be called for all /api/* requests
 export default async (req, res) => {
