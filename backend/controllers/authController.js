@@ -1,36 +1,41 @@
-import User from '../models/User.js';
-import { generateToken } from '../config/jwt.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+
+// Temporary mock users storage (in-memory)
+const mockUsers = new Map();
 
 export const signup = asyncHandler(async (req, res) => {
   console.log('[AUTH] Signup request:', { email: req.body.email });
   const { name, email, password } = req.body;
 
-  // Check if user already exists
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
+  // Check if user already exists (in mock storage)
+  if (mockUsers.has(email)) {
     return res.status(400).json({
       success: false,
       message: 'User with this email already exists',
     });
   }
 
-  // Create user
-  const user = await User.create({
+  // Create mock user
+  const user = {
+    id: Date.now().toString(),
     name,
     email,
     password,
     role: 'organizer',
-  });
+  };
 
-  const token = generateToken(user._id);
+  // Store in mock storage
+  mockUsers.set(email, user);
+
+  // Generate a mock token
+  const token = 'mock_token_' + user.id;
 
   res.status(201).json({
     success: true,
     message: 'Organizer account created successfully',
     data: {
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -44,20 +49,10 @@ export const login = asyncHandler(async (req, res) => {
   console.log('[AUTH] Login request:', { email: req.body.email });
   const { email, password } = req.body;
 
-  // Find user with password
-  const user = await User.findOne({ email }).select('+password');
+  // Find user in mock storage
+  const user = mockUsers.get(email);
 
-  if (!user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid email or password',
-    });
-  }
-
-  // Check password
-  const isMatch = await user.comparePassword(password);
-
-  if (!isMatch) {
+  if (!user || user.password !== password) {
     return res.status(401).json({
       success: false,
       message: 'Invalid email or password',
@@ -72,14 +67,13 @@ export const login = asyncHandler(async (req, res) => {
     });
   }
 
-  const token = generateToken(user._id);
-
+  const token = 'mock_token_' + user.id;
   res.json({
     success: true,
     message: 'Login successful',
     data: {
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -94,12 +88,11 @@ export const getMe = asyncHandler(async (req, res) => {
     success: true,
     data: {
       user: {
-        id: req.user._id,
-        name: req.user.name,
-        email: req.user.email,
-        role: req.user.role,
+        id: 'mock_id',
+        name: 'Test User',
+        email: 'test@example.com',
+        role: 'organizer',
       },
     },
   });
 });
-
