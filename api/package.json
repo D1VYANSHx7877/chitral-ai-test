@@ -10,6 +10,7 @@
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "joi": "^17.11.0",
-    "nanoid": "^5.0.4"
+    "nanoid": "^5.0.4",
+    "serverless-http": "^3.2.0"
   }
 }
