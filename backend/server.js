@@ -38,8 +38,7 @@ const app = express();
 let dbConnected = false;
 let dbConnectionError = null;
 
-const 31
-  = async () => {
+const ensureDBConnection  = async () => {
   if (!dbConnected && !dbConnectionError) {
     try {
       // Skip DB connection if MONGO_URI is not set
