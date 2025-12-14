@@ -13,27 +13,24 @@ import registrationRoutes from './routes/registrationRoutes.js';
 // Load environment variables
 dotenv.config();
 
-// Validate required environment variables at startup
+// Track environment validation status
+let envValidationError = null;
 const validateEnv = () => {
   const required = ['MONGO_URI', 'JWT_SECRET'];
   const missing = required.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
-    const error = `CRITICAL: Missing environment variables: ${missing.join(', ')}`;
-    console.error(`\n❌ ${error}\n`);
-    throw new Error(error);
+    const error = `Missing environment variables: ${missing.join(', ')}`;
+    console.warn(`\n⚠️  WARNING: ${error}\n`);
+    envValidationError = error;
+    return false;
   }
   console.log('✓ All required environment variables loaded');
+  return true;
 };
 
-try {
-  validateEnv();
-} catch (error) {
-  console.error('Startup validation failed:', error.message);
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-    process.exit(1);
-  }
-}
+// Validate but don't crash on error
+validateEnv();
 
 const app = express();
 
@@ -44,18 +41,22 @@ let dbConnectionError = null;
 const ensureDBConnection = async () => {
   if (!dbConnected && !dbConnectionError) {
     try {
+      // Skip DB connection if MONGO_URI is not set
+      if (!process.env.MONGO_URI) {
+        throw new Error('MONGO_URI environment variable is not set');
+      }
       await connectDB();
       dbConnected = true;
       dbConnectionError = null;
-      console.log('Database connection established');
+      console.log('✓ Database connection established');
     } catch (error) {
-      console.error('Database connection error:', error.message);
+      console.error('[DB Connection Error]', error.message);
       dbConnectionError = error;
       dbConnected = false;
-      throw error; // Re-throw to let route handlers handle it
+      throw error;
     }
   } else if (dbConnectionError) {
-    throw dbConnectionError; // Re-throw existing error
+    throw dbConnectionError;
   }
 };
 
@@ -64,29 +65,32 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || process.env.VERCEL_URL || '*',
   credentials: true,
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware to ensure DB connection before handling requests
-// Skip DB connection for health check
-// CRITICAL: Must wrap async properly to catch errors in serverless
-app.use((req, res, next) => {
-  if (req.path === '/api/health' || req.path === '/health' || req.path === '/') {
-    return next();
-  }
-  
-  ensureDBConnection()
-    .then(() => next())
-    .catch((err) => {
-      console.error('[DB Connection Error]', err.message);
-      next(err);
-    });
+// Health check endpoint (doesn't require DB connection)
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    dbConnected: dbConnected,
+    dbError: dbConnectionError ? dbConnectionError.message : null,
+  });
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/registrations', registrationRoutes);
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    dbConnected: dbConnected,
+    dbError: dbConnectionError ? dbConnectionError.message : null,
+  });
+});
 
 // Root route
 app.get('/', (req, res) => {
@@ -104,24 +108,32 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check (doesn't require DB connection)
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-  });
+// Middleware to ensure DB connection before handling requests
+// Skip DB connection for health check
+app.use((req, res, next) => {
+  // Skip DB connection for health check endpoints
+  if (req.path === '/api/health' || req.path === '/health' || req.path === '/') {
+    return next();
+  }
+  
+  ensureDBConnection()
+    .then(() => next())
+    .catch((err) => {
+      console.error('[DB Connection Error]', err.message);
+      // Return error response instead of crashing
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection failed',
+        error: err.message,
+        timestamp: new Date().toISOString(),
+      });
+    });
 });
 
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-  });
-});
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/registrations', registrationRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -148,4 +160,3 @@ if (!process.env.VERCEL) {
 }
 
 export default app;
-
