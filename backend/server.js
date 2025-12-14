@@ -38,12 +38,16 @@ const app = express();
 let dbConnected = false;
 let dbConnectionError = null;
 
-const ensureDBConnection = async () => {
+const 31
+  = async () => {
   if (!dbConnected && !dbConnectionError) {
     try {
       // Skip DB connection if MONGO_URI is not set
-      if (!process.env.MONGO_URI) {
-        throw new Error('MONGO_URI environment variable is not set');
+if (!process.env.MONGO_URI) {
+     console.warn('⚠️  MONGO_URI is not set. Database features will not be available.');
+     dbConnected = false;
+     return;
+   }
       }
       await connectDB();
       dbConnected = true;
