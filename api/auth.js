@@ -11,7 +11,7 @@ export default function handler(req, res) {
   }
   
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+     const body = JSON.parse(typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {}));
     
     // POST = signup or login
     if (req.method === 'POST') {
