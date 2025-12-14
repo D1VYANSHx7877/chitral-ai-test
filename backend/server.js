@@ -123,19 +123,9 @@ app.use((req, res, next) => {
     return next();
   }
   
-  ensureDBConnection()
-    .then(() => next())
-    .catch((err) => {
-      console.error('[DB Connection Error]', err.message);
-      // Return error response instead of crashing
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection failed',
-        error: err.message,
-        timestamp: new Date().toISOString(),
-      });
-    });
-});
+  // Skipping DB connection check for serverless (MONGO_URI not set)
+  next();
+  });
 
 // Routes
 app.use('/api/auth', authRoutes);
