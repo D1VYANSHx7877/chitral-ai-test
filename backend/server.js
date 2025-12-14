@@ -13,6 +13,28 @@ import registrationRoutes from './routes/registrationRoutes.js';
 // Load environment variables
 dotenv.config();
 
+// Validate required environment variables at startup
+const validateEnv = () => {
+  const required = ['MONGO_URI', 'JWT_SECRET'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    const error = `CRITICAL: Missing environment variables: ${missing.join(', ')}`;
+    console.error(`\n❌ ${error}\n`);
+    throw new Error(error);
+  }
+  console.log('✓ All required environment variables loaded');
+};
+
+try {
+  validateEnv();
+} catch (error) {
+  console.error('Startup validation failed:', error.message);
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    process.exit(1);
+  }
+}
+
 const app = express();
 
 // Lazy database connection - only connect when needed (for serverless)
@@ -47,25 +69,24 @@ app.use(express.urlencoded({ extended: true }));
 
 // Middleware to ensure DB connection before handling requests
 // Skip DB connection for health check
-app.use(async (req, res, next) => {
-  if (req.path !== '/health') {
-    await ensureDBConnection();
+// CRITICAL: Must wrap async properly to catch errors in serverless
+app.use((req, res, next) => {
+  if (req.path === '/api/health' || req.path === '/health' || req.path === '/') {
+    return next();
   }
-  next();
+  
+  ensureDBConnection()
+    .then(() => next())
+    .catch((err) => {
+      console.error('[DB Connection Error]', err.message);
+      next(err);
+    });
 });
 
-// Routes - these are used by both local dev (port 5000) and Vercel serverless (/api/*)
-// For local dev: requests come to /api/auth, /api/events, /api/registrations
-// For Vercel: /api prefix is stripped by handler, so routes should be /auth, /events, /registrations
-// To support both, we register with /api prefix here
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/registrations', registrationRoutes);
-
-// Also register without /api for serverless compatibility
-app.use('/auth', authRoutes);
-app.use('/events', eventRoutes);
-app.use('/registrations', registrationRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -84,7 +105,6 @@ app.get('/', (req, res) => {
 });
 
 // Health check (doesn't require DB connection)
-// Support both /api/health and /health for serverless
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -106,8 +126,17 @@ app.get('/health', (req, res) => {
 // 404 handler
 app.use(notFound);
 
-// Error handler
+// Error handler (must be last)
 app.use(errorHandler);
+
+// Global error handlers for serverless
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Unhandled Rejection]', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[Uncaught Exception]', error);
+});
 
 // Export app for Vercel serverless functions
 // Only start server if not in Vercel environment

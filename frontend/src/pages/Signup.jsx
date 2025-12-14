@@ -51,18 +51,19 @@ const Signup = () => {
     } catch (err) {
       let errorMessage = 'Signup failed. Please try again.';
       
+      // Log full error for debugging
+      console.error('[Signup Error]', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      });
+      
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
-        // Check for database connection errors
-        if (errorMessage.includes('Database connection') || 
-            errorMessage.includes('MONGO_URI') ||
-            errorMessage.includes('buffering timed out')) {
-          errorMessage = 'Database connection failed. Please check your MongoDB configuration in backend/.env file. See SETUP_MONGODB.md for help.';
-        }
       } else if (err.response?.data?.errors) {
         errorMessage = err.response.data.errors.join(', ');
       } else if (err.message === 'Network Error' || !err.response) {
-        errorMessage = 'Cannot connect to server. Make sure the backend server is running on port 5000.';
+        errorMessage = 'Cannot connect to server. Check your internet connection and try again.';
       }
       
       setError(errorMessage);

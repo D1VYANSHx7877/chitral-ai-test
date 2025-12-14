@@ -1,28 +1,13 @@
 // Vercel serverless function entry point
+import serverless from 'serverless-http';
 import app from '../backend/server.js';
 
-// (runtime configured in root vercel.json)
+// Set Vercel environment flag
+process.env.VERCEL = '1';
 
-// Export handler for Vercel
-// This function will be called for all /api/* requests
-export default (req, res) => {
-  // Set Vercel environment flag
-  process.env.VERCEL = '1';
-  
-  try {
-    // Handle the request through Express
-    // Remove /api prefix for internal routing
-    req.url = req.url.replace(/^\/api/, '') || '/';
-    return app(req, res);
-  } catch (error) {
-    console.error('Serverless function error:', error);
-    if (!res.headersSent) {
-      return res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      });
-    }
-  }
-};
+// Wrap Express app as a serverless handler
+const handler = serverless(app);
+
+// Export for Vercel
+export default handler;
 

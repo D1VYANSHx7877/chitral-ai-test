@@ -2,11 +2,19 @@ export const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
-  // Log error for debugging (but don't expose stack in production)
-  if (process.env.NODE_ENV === 'development') {
-    console.error('Error details:', err);
-  } else {
-    console.error('Error:', err.message);
+  // CRITICAL: Always log errors with context for Vercel Function Logs
+  const timestamp = new Date().toISOString();
+  const reqInfo = `${req.method} ${req.originalUrl}`;
+  
+  console.error(`[${timestamp}] ERROR on ${reqInfo}:`, {
+    name: err.name,
+    message: err.message,
+    code: err.code,
+    statusCode: error.statusCode || 500,
+  });
+  
+  if (process.env.NODE_ENV === 'development' || process.env.VERCEL) {
+    console.error('Stack:', err.stack);
   }
 
   // Mongoose bad ObjectId
