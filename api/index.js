@@ -5,12 +5,14 @@ import app from '../backend/server.js';
 
 // Export handler for Vercel
 // This function will be called for all /api/* requests
-export default async (req, res) => {
+export default (req, res) => {
   // Set Vercel environment flag
   process.env.VERCEL = '1';
   
   try {
     // Handle the request through Express
+    // Remove /api prefix for internal routing
+    req.url = req.url.replace(/^\/api/, '') || '/';
     return app(req, res);
   } catch (error) {
     console.error('Serverless function error:', error);

@@ -3,10 +3,10 @@ import app from '../server.js';
 
 // Export handler for Vercel
 // This function will be called for all requests
-export default async (req, res) => {
+export default (req, res) => {
   try {
     // Handle the request through Express
-    await app(req, res);
+    return app(req, res);
   } catch (error) {
     console.error('Serverless function error:', error);
     if (!res.headersSent) {
