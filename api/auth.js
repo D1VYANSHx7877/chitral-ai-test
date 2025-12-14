@@ -1,68 +1,142 @@
 const users = new Map();
 
-export default function handler(req, res) {
+// Parse JSON body safely
+function parseBody(req) {
+  try {
+    if (!req.body) return {};
+    
+    if (typeof req.body === 'string') {
+      return JSON.parse(req.body);
+    }
+    
+    if (typeof req.body === 'object') {
+      return req.body;
+    }
+    
+    return {};
+  } catch (err) {
+    console.error('[Auth] Body parse error:', err);
+    return {};
+  }
+}
+
+export default async function handler(req, res) {
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', '*');
-  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Content-Type', 'application/json');
-  
+
+  // Handle OPTIONS request
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
+
   try {
-     const body = JSON.parse(typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {}));
-    
+    const body = parseBody(req);
+    const { name, email, password } = body;
+
     // POST = signup or login
     if (req.method === 'POST') {
-      const { name, email, password } = body;
-      
-      // No email or password = error
+      // Validate required fields
       if (!email || !password) {
-        return res.status(400).json({ success: false, message: 'Missing email or password' });
+        console.log('[Auth] Missing credentials:', { email: !!email, password: !!password });
+        return res.status(400).json({
+          success: false,
+          message: 'Email and password are required',
+        });
       }
-      
-      // If name exists = signup, else = login
+
+      // SIGNUP (has name)
       if (name) {
-        // SIGNUP
+        console.log('[Auth] Signup request:', { email, name });
+        
+        // Check if user exists
         if (users.has(email)) {
-          return res.status(400).json({ success: false, message: 'Email already registered' });
+          return res.status(400).json({
+            success: false,
+            message: 'Email already registered',
+          });
         }
-        const user = { id: Date.now().toString(), name, email, password, role: 'organizer' };
+
+        // Create user
+        const userId = `user_${Date.now()}`;
+        const user = {
+          id: userId,
+          name,
+          email,
+          password,
+          role: 'organizer',
+        };
+
         users.set(email, user);
+        console.log('[Auth] User created:', { userId, email });
+
         return res.status(201).json({
           success: true,
           message: 'Account created successfully',
           data: {
-            user: { id: user.id, name, email, role: 'organizer' },
-            token: 'mock_token_' + user.id
-          }
+            user: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+            },
+            token: `token_${userId}`,
+          },
         });
-      } else {
-        // LOGIN
+      }
+      
+      // LOGIN (no name)
+      else {
+        console.log('[Auth] Login request:', { email });
+        
         const user = users.get(email);
+        
         if (!user || user.password !== password) {
-          return res.status(401).json({ success: false, message: 'Invalid credentials' });
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid email or password',
+          });
         }
+
+        console.log('[Auth] Login successful:', { email });
+
         return res.status(200).json({
           success: true,
           message: 'Login successful',
           data: {
-            user: { id: user.id, name: user.name, email, role: 'organizer' },
-            token: 'mock_token_' + user.id
-          }
+            user: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+            },
+            token: `token_${user.id}`,
+          },
         });
       }
     }
-    
+
     // GET = health check
     if (req.method === 'GET') {
-      return res.status(200).json({ success: true, message: 'API ready', users: users.size });
+      return res.status(200).json({
+        success: true,
+        message: 'Auth API ready',
+        users: users.size,
+      });
     }
-    
-    res.status(405).json({ success: false, message: 'Method not allowed' });
+
+    // Unsupported method
+    return res.status(405).json({
+      success: false,
+      message: 'Method not allowed',
+    });
   } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+    console.error('[Auth] Error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: ' + (err.message || 'Unknown error'),
+    });
   }
 }
