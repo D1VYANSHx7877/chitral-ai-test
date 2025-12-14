@@ -18,3 +18,8 @@ export default async (req, res) => {
     }
   }
 };
+
+// Vercel runtime config
+export const config = {
+  runtime: 'nodejs24.x'
+};

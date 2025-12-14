@@ -3,7 +3,7 @@ import app from '../backend/server.js';
 
 // Vercel runtime config
 export const config = {
-  runtime: 'nodejs18.x'
+  runtime: 'nodejs24.x'
 };
 
 // Export handler for Vercel
