@@ -10,7 +10,7 @@ import { signupSchema, loginSchema } from '../validations/authValidation.js';
 
 const router = express.Router();
 
-router.post('/signup', validate(signupSchema), signup);
+router.post('/signup', signup);
 router.post('/login', validate(loginSchema), login);
 router.get('/me', authenticate, getMe);
 
